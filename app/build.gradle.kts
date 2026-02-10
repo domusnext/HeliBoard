@@ -1,4 +1,5 @@
 import com.android.build.api.variant.ApplicationVariant
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -9,6 +10,19 @@ plugins {
 
 android {
     compileSdk = 35
+
+    signingConfigs {
+        create("release") {
+            val keystorePropsFile = rootProject.file("app/release/keystore.properties")
+            if (keystorePropsFile.exists()) {
+                val keystoreProps = Properties().apply { load(keystorePropsFile.inputStream()) }
+                storeFile = project.file(keystoreProps["storeFile"]!!)
+                storePassword = keystoreProps["storePassword"] as String
+                keyAlias = keystoreProps["keyAlias"] as String
+                keyPassword = keystoreProps["keyPassword"] as String
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "helium314.keyboard"
@@ -29,6 +43,7 @@ android {
             isShrinkResources = false
             isDebuggable = false
             isJniDebuggable = false
+            signingConfig = signingConfigs.getByName("release")
         }
         create("nouserlib") { // same as release, but does not allow the user to provide a library
             isMinifyEnabled = true

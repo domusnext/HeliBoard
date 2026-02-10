@@ -879,6 +879,8 @@ New dictionary:
     <string name="space_swipe_toggle_numpad_entry">Toggle numpad</string>
     <!-- Option to hide the keyboard when swiping the spacebar -->
     <string name="space_swipe_hide_keyboard_entry">Hide keyboard</string>
+    <!-- Toolbar key: hide keyboard (always shown at rightmost) -->
+    <string name="hide_keyboard">Hide keyboard</string>
     <!-- Title of the setting for variable toolbar direction -->
     <string name="var_toolbar_direction">Variable toolbar direction</string>
     <!-- Description of the variable toolbar direction setting -->

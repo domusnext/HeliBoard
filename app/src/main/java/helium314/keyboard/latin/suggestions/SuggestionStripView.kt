@@ -172,6 +172,8 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         }
 
         updateKeys()
+        // Hide the toolbar expand button (leftmost "expand right" icon)
+        toolbarExpandKey.visibility = GONE
     }
 
     private lateinit var listener: Listener
@@ -520,6 +522,8 @@ class SuggestionStripView(context: Context, attrs: AttributeSet?, defStyle: Int)
         toolbarExpandKey.setOnClickListener(if (hideToolbarKeys || !toolbarIsExpandable) null else this)
         pinnedKeys.visibility = if (hideToolbarKeys) GONE else suggestionsStrip.visibility
         isExternalSuggestionVisible = false
+        // Keep toolbar expand button hidden
+       toolbarExpandKey.visibility = GONE
     }
 
     private fun addKeyToPinnedKeys(pinnedKey: ToolbarKey) {
