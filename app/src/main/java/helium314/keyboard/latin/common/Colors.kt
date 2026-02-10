@@ -263,12 +263,7 @@ class DynamicColors(context: Context, override val themeStyle: String, override 
         }
         keyTextFilter = colorFilter(keyText)
 
-        actionKeyIconColorFilter = when {
-            themeStyle == STYLE_HOLO -> keyTextFilter
-            // the white icon may not have enough contrast, and can't be adjusted by the user
-            isBrightColor(accent) -> colorFilter(Color.DKGRAY)
-            else -> null
-        }
+        actionKeyIconColorFilter = colorFilter(Color.BLACK)
     }
 
     override fun get(color: ColorType): Int = when (color) {
@@ -290,7 +285,8 @@ class DynamicColors(context: Context, override val themeStyle: String, override 
         CLIPBOARD_SUGGESTION_BACKGROUND -> doubleAdjustedBackground
         NAVIGATION_BAR -> navBar
         MORE_SUGGESTIONS_HINT, SUGGESTED_WORD, SUGGESTION_TYPED_WORD, SUGGESTION_VALID_WORD -> adjustedKeyText
-        ACTION_KEY_ICON, TOOL_BAR_EXPAND_KEY -> Color.WHITE
+        ACTION_KEY_ICON -> Color.BLACK
+        TOOL_BAR_EXPAND_KEY -> Color.WHITE
     }
 
     override fun setColor(drawable: Drawable, color: ColorType) {
@@ -460,12 +456,7 @@ class DefaultColors (
             spaceBarStateList = pressedStateList(brightenOrDarken(spaceBar, true), spaceBar)
         }
         keyTextFilter = colorFilter(keyText)
-        actionKeyIconColorFilter = when {
-            themeStyle == STYLE_HOLO -> keyTextFilter
-            // the white icon may not have enough contrast, and can't be adjusted by the user
-            isBrightColor(accent) -> colorFilter(Color.DKGRAY)
-            else -> null
-        }
+        actionKeyIconColorFilter = colorFilter(Color.BLACK)
     }
 
     override fun get(color: ColorType): Int = when (color) {
@@ -488,7 +479,7 @@ class DefaultColors (
         NAVIGATION_BAR -> navBar
         SUGGESTION_AUTO_CORRECT, EMOJI_CATEGORY, TOOL_BAR_KEY, TOOL_BAR_EXPAND_KEY, ONE_HANDED_MODE_BUTTON -> suggestionText
         MORE_SUGGESTIONS_HINT, SUGGESTED_WORD, SUGGESTION_TYPED_WORD, SUGGESTION_VALID_WORD -> adjustedSuggestionText
-        ACTION_KEY_ICON -> Color.WHITE
+        ACTION_KEY_ICON -> Color.BLACK
     }
 
     override fun setColor(drawable: Drawable, color: ColorType) {
