@@ -66,6 +66,10 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (SETTINGS_UI_DISABLED) {
+            finish()
+            return
+        }
         if (Settings.getValues() == null) {
             val inputAttributes = InputAttributes(EditorInfo(), false, packageName)
             Settings.getInstance().loadSettings(this, resources.configuration.locale(), inputAttributes)
@@ -215,6 +219,8 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
         // having it in a companion object is not ideal as it will stay in memory even after settings are closed
         // but it's small enough to not care
         lateinit var settingsContainer: SettingsContainer
+
+        const val SETTINGS_UI_DISABLED = true
 
         var forceNight: Boolean? = null
         var forceTheme: String? = null

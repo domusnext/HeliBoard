@@ -1675,18 +1675,7 @@ public class LatinIME extends InputMethodService implements
     }
 
     void launchSettings() {
-        mInputLogic.commitTyped(mSettings.getCurrent(), LastComposedWord.NOT_A_SEPARATOR);
-        requestHideSelf(0);
-        final MainKeyboardView mainKeyboardView = mKeyboardSwitcher.getMainKeyboardView();
-        if (mainKeyboardView != null) {
-            mainKeyboardView.closing();
-        }
-        final Intent intent = new Intent();
-        intent.setClass(LatinIME.this, SettingsActivity2.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-                | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        startActivity(intent);
+        // Product customization: disable all settings entry points.
     }
 
     public void dumpDictionaryForDebug(final String dictName) {
