@@ -28,6 +28,7 @@ import helium314.keyboard.latin.utils.LayoutType
 import helium314.keyboard.latin.utils.Log
 import helium314.keyboard.latin.utils.ToolbarKey
 import helium314.keyboard.latin.utils.toolbarKeyStrings
+import helium314.keyboard.settings.SettingsActivity
 
 // taken from FlorisBoard, modified (see also KeyData)
 
@@ -103,7 +104,7 @@ sealed interface KeyData : AbstractKeyData {
                 keys.add("!icon/language_switch_key|!code/key_language_switch")
             if (!params.mId.mOneHandedModeEnabled)
                 keys.add("!icon/start_onehanded_mode_key|!code/key_toggle_onehanded")
-            if (!params.mId.mDeviceLocked)
+            if (!params.mId.mDeviceLocked && !SettingsActivity.SETTINGS_UI_DISABLED)
                 keys.add("!icon/settings_key|!code/key_settings")
             if (shouldShowTldPopups(params)) {
                 keys.add(",")
