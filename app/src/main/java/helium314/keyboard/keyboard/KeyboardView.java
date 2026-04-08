@@ -29,6 +29,8 @@ import androidx.annotation.Nullable;
 
 import helium314.keyboard.keyboard.emoji.EmojiPageKeyboardView;
 import helium314.keyboard.keyboard.internal.KeyDrawParams;
+import helium314.keyboard.keyboard.internal.KeyboardIconsSet;
+import helium314.keyboard.keyboard.internal.PopupKeySpec;
 import helium314.keyboard.keyboard.internal.KeyVisualAttributes;
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode;
 import helium314.keyboard.latin.R;
@@ -535,6 +537,11 @@ public class KeyboardView extends View {
     // Draw popup hint "..." at the center or bottom right corner of the key, depending on style.
     protected void drawKeyPopupHint(@NonNull final Key key, @NonNull final Canvas canvas,
             @NonNull final Paint paint, @NonNull final KeyDrawParams params) {
+        final Keyboard keyboard = getKeyboard();
+        if (keyboard != null && shouldDrawEmojiPopupHint(key)) {
+            drawKeyPopupHintIcon(key, canvas, keyboard, params, "emoji");
+            return;
+        }
         if (TextUtils.isEmpty(mKeyPopupHintLetter)) {
             return;
         }
@@ -557,6 +564,45 @@ public class KeyboardView extends View {
         }
         final float hintY = keyHeight - mKeyPopupHintLetterPadding;
         canvas.drawText(mKeyPopupHintLetter, hintX, hintY, paint);
+    }
+
+    private boolean shouldDrawEmojiPopupHint(@NonNull final Key key) {
+        if (key.getCode() != Constants.CODE_COMMA) {
+            return false;
+        }
+        final PopupKeySpec[] popupKeys = key.getPopupKeys();
+        if (popupKeys == null) {
+            return false;
+        }
+        for (final PopupKeySpec popupKey : popupKeys) {
+            if (popupKey.mCode == KeyCode.EMOJI
+                    || "emoji".equals(popupKey.mIconName)
+                    || "emoji_normal_key".equals(popupKey.mIconName)
+                    || "emoji_action_key".equals(popupKey.mIconName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void drawKeyPopupHintIcon(@NonNull final Key key, @NonNull final Canvas canvas,
+            @NonNull final Keyboard keyboard, @NonNull final KeyDrawParams params,
+            @NonNull final String iconName) {
+        final Drawable icon = keyboard.mIconsSet.getNewDrawable(iconName, getContext());
+        if (icon == null) {
+            return;
+        }
+        setKeyIconColor(key, icon, keyboard);
+        icon.setAlpha((icon.getAlpha() * params.mAnimAlpha) / Constants.Color.ALPHA_OPAQUE);
+        final int keyWidth = key.getDrawWidth();
+        final int keyHeight = key.getHeight();
+        final float density = getResources().getDisplayMetrics().density;
+        final int iconSize = Math.max(1,
+                (int)(Math.min(keyWidth, keyHeight) * 0.14f * mIconScaleFactor) + Math.round(12 * density));
+        final int iconX = Math.max(0, (keyWidth - iconSize) / 2);
+        final int iconY = Math.max(0,
+                Math.max(mKeyBackgroundPadding.top, (int)(mKeyHintLetterPadding * 0.35f)) + Math.round(8 * density));
+        drawIcon(canvas, icon, iconX, iconY, iconSize, iconSize);
     }
 
     protected static void drawIcon(@NonNull final Canvas canvas,@NonNull final Drawable icon,
