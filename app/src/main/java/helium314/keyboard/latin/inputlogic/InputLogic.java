@@ -677,6 +677,7 @@ public final class InputLogic {
                 handleBackspaceEvent(event, inputTransaction, currentKeyboardScript);
                 // Backspace is a functional key, but it affects the contents of the editor.
                 inputTransaction.setDidAffectContents();
+                sendDownUpKeyEventWithMetaState(KeyCode.DELETE, event.getMetaState());
                 break;
             case KeyCode.SHIFT:
                 if (KeyboardSwitcher.getInstance().getKeyboard() != null && !KeyboardSwitcher.getInstance().getKeyboard().mId.isAlphabetKeyboard())
