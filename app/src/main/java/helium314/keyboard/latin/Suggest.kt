@@ -86,6 +86,21 @@ class Suggest(private val mDictionaryFacilitator: DictionaryFacilitator) {
         val typedWordFirstOccurrenceWordInfo = suggestionsContainer.firstOrNull { it.mWord == capitalizedTypedWord }
         val firstOccurrenceOfTypedWordInSuggestions = SuggestedWordInfo.removeDupsAndTypedWord(capitalizedTypedWord, suggestionsContainer)
         makeFirstTwoSuggestionsNonEmoji(suggestionsContainer)
+        if (!resultsArePredictions && typedWordString.isNotEmpty()
+            && Settings.getValues().mUsePersonalizedDicts && suggestionsContainer.size >= 2
+        ) {
+            promoteContextualSuggestionForTyping(
+                suggestionsContainer,
+                getNextWordSuggestions(ngramContext, keyboard, inputStyleIfNotPrediction, settingsValuesForSuggestion),
+                true
+            )
+        }
+        promotePrefixCompletionForTyping(
+            suggestionsContainer,
+            capitalizedTypedWord,
+            resultsArePredictions,
+            wordComposer.isResumed
+        )
 
         val (allowsToBeAutoCorrected, hasAutoCorrection) = shouldBeAutoCorrected(
             trailingSingleQuotesCount,
@@ -121,10 +136,20 @@ class Suggest(private val mDictionaryFacilitator: DictionaryFacilitator) {
             inputStyleIfNotPrediction
         }
 
-        // If there is an incoming autocorrection, make sure typed word is shown, so user is able to override it.
-        // Otherwise, if the relevant setting is enabled, show the typed word in the middle.
-        val indexOfTypedWord = if (hasAutoCorrection) 2 else 1
-        if ((hasAutoCorrection || (Settings.getValues().mCenterSuggestionTextToEnter && !wordComposer.isResumed)
+        // Ordinary typing omits index 0 from the visible strip, so insert the composing word at
+        // index 2 to keep it in the first visible slot while suggestions occupy the center/right.
+        val shouldPinTypedWordFirst = shouldPinTypedWordToFirstSuggestion(
+            resultsArePredictions,
+            wordComposer.isResumed,
+            capitalizedTypedWord
+        )
+        val indexOfTypedWord = getTypedWordDisplayIndex(
+            shouldPinTypedWordFirst,
+            hasAutoCorrection,
+            suggestionsList.size
+        )
+        if ((hasAutoCorrection || shouldPinTypedWordFirst
+                || (Settings.getValues().mCenterSuggestionTextToEnter && !wordComposer.isResumed)
                 || capitalizedTypedWord != wordComposer.typedWord)
             && suggestionsList.size >= indexOfTypedWord && !TextUtils.isEmpty(capitalizedTypedWord)) {
             if (typedWordFirstOccurrenceWordInfo != null) {
@@ -361,6 +386,15 @@ class Suggest(private val mDictionaryFacilitator: DictionaryFacilitator) {
         // Close to -2**31
         private const val SUPPRESS_SUGGEST_THRESHOLD = -2000000000
 
+        private const val CONTEXTUAL_SUGGESTION_MIN_SCORE = 170
+        private const val CONTEXTUAL_SUGGESTION_MIN_SCORE_RATIO = 0.93
+
+        private const val PREFIX_COMPLETION_MIN_TYPED_LENGTH = 3
+        private const val PREFIX_COMPLETION_MIN_SCORE = 200000
+        private const val PREFIX_COMPLETION_MIN_SCORE_RATIO = 0.70
+        private const val PREFIX_COMPLETION_DISTANT_CORRECTION_MIN_SCORE_RATIO = 0.35
+        private const val PREFIX_COMPLETION_DISTANT_COMMON_PREFIX_RATIO = 0.5
+
         private const val MAXIMUM_AUTO_CORRECT_LENGTH_FOR_GERMAN = 12
         // TODO: should we add Finnish here?
         private val sLanguageToMaximumAutoCorrectionWithSpaceLength = hashMapOf(Locale.GERMAN.language to MAXIMUM_AUTO_CORRECT_LENGTH_FOR_GERMAN)
@@ -490,6 +524,111 @@ class Suggest(private val mDictionaryFacilitator: DictionaryFacilitator) {
             }
         }
 
+        // public for testing
+        fun promoteContextualSuggestionForTyping(
+            suggestionsContainer: ArrayList<SuggestedWordInfo>,
+            nextWordSuggestions: Iterable<SuggestedWordInfo>,
+            usePersonalizedDicts: Boolean
+        ) {
+            if (!usePersonalizedDicts || suggestionsContainer.size < 2) return
+            val firstSuggestion = suggestionsContainer.firstOrNull() ?: return
+            val contextualWords = nextWordSuggestions.asSequence()
+                .filter { it.mScore >= CONTEXTUAL_SUGGESTION_MIN_SCORE && !it.isEmoji }
+                .map { it.mWord }
+                .toHashSet()
+            if (contextualWords.isEmpty()) return
+
+            val contextualSuggestion = suggestionsContainer.firstOrNull {
+                !it.isEmoji
+                        && it.mScore >= firstSuggestion.mScore * CONTEXTUAL_SUGGESTION_MIN_SCORE_RATIO
+                        && contextualWords.contains(it.mWord)
+            } ?: return
+            if (contextualSuggestion === firstSuggestion) return
+
+            suggestionsContainer.remove(contextualSuggestion)
+            suggestionsContainer.add(0, contextualSuggestion)
+        }
+
+        // public for testing
+        fun promotePrefixCompletionForTyping(
+            suggestionsContainer: ArrayList<SuggestedWordInfo>,
+            typedWord: String,
+            resultsArePredictions: Boolean,
+            isResumed: Boolean
+        ) {
+            if (resultsArePredictions || isResumed || typedWord.length < PREFIX_COMPLETION_MIN_TYPED_LENGTH
+                || suggestionsContainer.size < 2
+            ) return
+            val firstSuggestion = suggestionsContainer.firstOrNull() ?: return
+            val prefixCompletion = suggestionsContainer.firstOrNull {
+                isPrefixCompletionCandidate(typedWord, it)
+            } ?: return
+            if (prefixCompletion === firstSuggestion || prefixCompletion.mScore < PREFIX_COMPLETION_MIN_SCORE) return
+
+            val minScoreRatio = if (isDistantCorrectionForPrefixCompletion(typedWord, firstSuggestion.mWord)) {
+                PREFIX_COMPLETION_DISTANT_CORRECTION_MIN_SCORE_RATIO
+            } else {
+                PREFIX_COMPLETION_MIN_SCORE_RATIO
+            }
+            if (prefixCompletion.mScore < firstSuggestion.mScore * minScoreRatio) return
+
+            suggestionsContainer.remove(prefixCompletion)
+            suggestionsContainer.add(0, prefixCompletion)
+        }
+
+        private fun isPrefixCompletionCandidate(
+            typedWord: String,
+            suggestion: SuggestedWordInfo
+        ): Boolean =
+            !suggestion.isEmoji
+                    && suggestion.mWord.length > typedWord.length
+                    && suggestion.mWord.regionMatches(
+                        0,
+                        typedWord,
+                        0,
+                        typedWord.length,
+                        ignoreCase = true
+                    )
+
+        // public for testing
+        fun isDistantCorrectionForPrefixCompletion(typedWord: String, correction: String): Boolean {
+            if (typedWord.isEmpty() || correction.isEmpty()) return false
+            val prefixLength = commonPrefixLength(typedWord, correction)
+            return prefixLength < min(2, typedWord.length)
+                    || prefixLength < typedWord.length * PREFIX_COMPLETION_DISTANT_COMMON_PREFIX_RATIO
+        }
+
+        private fun commonPrefixLength(first: String, second: String): Int {
+            val maxLength = min(first.length, second.length)
+            var prefixLength = 0
+            while (prefixLength < maxLength
+                && first[prefixLength].lowercaseChar() == second[prefixLength].lowercaseChar()
+            ) {
+                ++prefixLength
+            }
+            return prefixLength
+        }
+
+        // public for testing
+        fun shouldPinTypedWordToFirstSuggestion(
+            resultsArePredictions: Boolean,
+            isResumed: Boolean,
+            typedWord: String
+        ): Boolean =
+            !resultsArePredictions
+                    && !isResumed
+                    && typedWord.isNotEmpty()
+
+        // public for testing
+        fun getTypedWordDisplayIndex(
+            shouldPinTypedWordFirst: Boolean,
+            hasAutoCorrection: Boolean,
+            suggestionsSize: Int
+        ): Int {
+            val preferredIndex = if (shouldPinTypedWordFirst || hasAutoCorrection) 2 else 1
+            return min(preferredIndex, suggestionsSize)
+        }
+
         /** reduces score of the first suggestion if next one is close and has more than a single letter  */
         private fun replaceSingleLetterFirstSuggestion(suggestionResults: SuggestionResults) {
             if (suggestionResults.size < 2 || suggestionResults.first().mWord.length != 1) return
@@ -519,12 +658,12 @@ class Suggest(private val mDictionaryFacilitator: DictionaryFacilitator) {
             if (pseudoTypedWordInfo == null || !Settings.getValues().mUsePersonalizedDicts
                 || pseudoTypedWordInfo.mSourceDict.mDictType != Dictionary.TYPE_MAIN || suggestionsContainer.size < 2
             ) return pseudoTypedWordInfo
-            nextWordSuggestions.removeAll { info: SuggestedWordInfo -> info.mScore < 170 } // we only want reasonably often typed words, value may require tuning
+            nextWordSuggestions.removeAll { info: SuggestedWordInfo -> info.mScore < CONTEXTUAL_SUGGESTION_MIN_SCORE } // we only want reasonably often typed words, value may require tuning
             if (nextWordSuggestions.isEmpty()) return pseudoTypedWordInfo
 
             // for each suggestion, check whether the word was already typed in this ngram context (i.e. is nextWordSuggestion)
             for (suggestion in suggestionsContainer) {
-                if (suggestion.mScore < pseudoTypedWordInfo.mScore * 0.93) break // we only want reasonably good suggestions, value may require tuning
+                if (suggestion.mScore < pseudoTypedWordInfo.mScore * CONTEXTUAL_SUGGESTION_MIN_SCORE_RATIO) break // we only want reasonably good suggestions, value may require tuning
                 if (suggestion === rejected) continue  // ignore rejected suggestions
                 for (nextWordSuggestion in nextWordSuggestions) {
                     if (nextWordSuggestion.mWord != suggestion.mWord) continue

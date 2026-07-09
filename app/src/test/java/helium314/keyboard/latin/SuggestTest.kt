@@ -276,6 +276,227 @@ class SuggestTest {
         assertEquals("word'", result.mWord)
     }
 
+    @Test fun `contextual typed suggestion is promoted when scores are close`() {
+        val locale = Locale.ENGLISH
+        val suggestions = arrayListOf(
+            suggestion("host", 1000, locale),
+            suggestion("home", 930, locale),
+            suggestion("hope", 800, locale),
+        )
+
+        Suggest.promoteContextualSuggestionForTyping(
+            suggestions, suggestionResults(suggestion("home", 200, locale)), true
+        )
+
+        assertEquals(listOf("home", "host", "hope"), suggestions.map { it.mWord })
+    }
+
+    @Test fun `contextual typed suggestion is not promoted when candidate score is too low`() {
+        val locale = Locale.ENGLISH
+        val suggestions = arrayListOf(
+            suggestion("host", 1000, locale),
+            suggestion("home", 929, locale),
+            suggestion("hope", 800, locale),
+        )
+
+        Suggest.promoteContextualSuggestionForTyping(
+            suggestions, suggestionResults(suggestion("home", 200, locale)), true
+        )
+
+        assertEquals(listOf("host", "home", "hope"), suggestions.map { it.mWord })
+    }
+
+    @Test fun `contextual typed suggestion is not promoted when context score is too low`() {
+        val locale = Locale.ENGLISH
+        val suggestions = arrayListOf(
+            suggestion("host", 1000, locale),
+            suggestion("home", 950, locale),
+            suggestion("hope", 800, locale),
+        )
+
+        Suggest.promoteContextualSuggestionForTyping(
+            suggestions, suggestionResults(suggestion("home", 169, locale)), true
+        )
+
+        assertEquals(listOf("host", "home", "hope"), suggestions.map { it.mWord })
+    }
+
+    @Test fun `contextual typed suggestion is not promoted when personalization is disabled`() {
+        val locale = Locale.ENGLISH
+        val suggestions = arrayListOf(
+            suggestion("host", 1000, locale),
+            suggestion("home", 950, locale),
+            suggestion("hope", 800, locale),
+        )
+
+        Suggest.promoteContextualSuggestionForTyping(
+            suggestions, suggestionResults(suggestion("home", 200, locale)), false
+        )
+
+        assertEquals(listOf("host", "home", "hope"), suggestions.map { it.mWord })
+    }
+
+    @Test fun `contextual typed suggestion is not added when absent from candidates`() {
+        val locale = Locale.ENGLISH
+        val suggestions = arrayListOf(
+            suggestion("host", 1000, locale),
+            suggestion("hope", 950, locale),
+        )
+
+        Suggest.promoteContextualSuggestionForTyping(
+            suggestions, suggestionResults(suggestion("home", 200, locale)), true
+        )
+
+        assertEquals(listOf("host", "hope"), suggestions.map { it.mWord })
+    }
+
+    @Test fun `contextual typed suggestion does not promote emoji`() {
+        val locale = Locale.ENGLISH
+        val emoji = String(Character.toChars(0x1F600))
+        val suggestions = arrayListOf(
+            suggestion("hello", 1000, locale),
+            suggestion(emoji, 980, locale),
+            suggestion("help", 970, locale),
+        )
+
+        Suggest.promoteContextualSuggestionForTyping(
+            suggestions, suggestionResults(suggestion(emoji, 220, locale)), true
+        )
+
+        assertEquals(listOf("hello", emoji, "help"), suggestions.map { it.mWord })
+    }
+
+    @Test fun `prefix completion is promoted when top correction is distant`() {
+        val locale = Locale.ENGLISH
+        val suggestions = arrayListOf(
+            suggestion("taken", 1_000_000, locale),
+            suggestion("caleb", 900_000, locale),
+            suggestion("calendar", 360_000, locale),
+        )
+
+        Suggest.promotePrefixCompletionForTyping(
+            suggestions,
+            typedWord = "calen",
+            resultsArePredictions = false,
+            isResumed = false
+        )
+
+        assertEquals(listOf("calendar", "taken", "caleb"), suggestions.map { it.mWord })
+    }
+
+    @Test fun `prefix completion is not promoted when score is too low`() {
+        val locale = Locale.ENGLISH
+        val suggestions = arrayListOf(
+            suggestion("taken", 1_000_000, locale),
+            suggestion("caleb", 900_000, locale),
+            suggestion("calendar", 190_000, locale),
+        )
+
+        Suggest.promotePrefixCompletionForTyping(
+            suggestions,
+            typedWord = "calen",
+            resultsArePredictions = false,
+            isResumed = false
+        )
+
+        assertEquals(listOf("taken", "caleb", "calendar"), suggestions.map { it.mWord })
+    }
+
+    @Test fun `prefix completion is not promoted over close correction unless score is close`() {
+        val locale = Locale.ENGLISH
+        val suggestions = arrayListOf(
+            suggestion("caleb", 1_000_000, locale),
+            suggestion("calendar", 360_000, locale),
+            suggestion("taken", 300_000, locale),
+        )
+
+        Suggest.promotePrefixCompletionForTyping(
+            suggestions,
+            typedWord = "calen",
+            resultsArePredictions = false,
+            isResumed = false
+        )
+
+        assertEquals(listOf("caleb", "calendar", "taken"), suggestions.map { it.mWord })
+    }
+
+    @Test fun `prefix completion is not promoted during prediction`() {
+        val locale = Locale.ENGLISH
+        val suggestions = arrayListOf(
+            suggestion("taken", 1_000_000, locale),
+            suggestion("calendar", 900_000, locale),
+        )
+
+        Suggest.promotePrefixCompletionForTyping(
+            suggestions,
+            typedWord = "calen",
+            resultsArePredictions = true,
+            isResumed = false
+        )
+
+        assertEquals(listOf("taken", "calendar"), suggestions.map { it.mWord })
+    }
+
+    @Test fun `distant correction uses weaker prefix overlap`() {
+        assertEquals(true, Suggest.isDistantCorrectionForPrefixCompletion("calen", "taken"))
+        assertEquals(false, Suggest.isDistantCorrectionForPrefixCompletion("calen", "caleb"))
+    }
+
+    @Test fun `typed word is pinned for ordinary typing`() {
+        assertEquals(
+            true,
+            Suggest.shouldPinTypedWordToFirstSuggestion(
+                resultsArePredictions = false,
+                isResumed = false,
+                typedWord = "reci"
+            )
+        )
+    }
+
+    @Test fun `empty typed word is not pinned`() {
+        assertEquals(
+            false,
+            Suggest.shouldPinTypedWordToFirstSuggestion(
+                resultsArePredictions = false,
+                isResumed = false,
+                typedWord = ""
+            )
+        )
+    }
+
+    @Test fun `typed word is not pinned during prediction`() {
+        assertEquals(
+            false,
+            Suggest.shouldPinTypedWordToFirstSuggestion(
+                resultsArePredictions = true,
+                isResumed = false,
+                typedWord = "reci"
+            )
+        )
+    }
+
+    @Test fun `typed word is inserted at first visible slot when candidates exist`() {
+        assertEquals(
+            2,
+            Suggest.getTypedWordDisplayIndex(
+                shouldPinTypedWordFirst = true,
+                hasAutoCorrection = false,
+                suggestionsSize = 3
+            )
+        )
+    }
+
+    @Test fun `typed word display index falls back when no candidate slot exists`() {
+        assertEquals(
+            1,
+            Suggest.getTypedWordDisplayIndex(
+                shouldPinTypedWordFirst = true,
+                hasAutoCorrection = false,
+                suggestionsSize = 1
+            )
+        )
+    }
+
     private fun shouldBeAutoCorrected(word: String, // typed word
                               suggestions: List<SuggestedWordInfo>, // suggestions ordered by score, including suggestion for typed word if in dictionary
                               firstSuggestionForEmpty: SuggestedWordInfo?, // first suggestion if typed word would be empty (null if none)
@@ -310,6 +531,11 @@ class SuggestTest {
             typedWordFirstOccurrenceWordInfo
         ).toList()
     }
+
+    private fun suggestionResults(vararg suggestions: SuggestedWordInfo): SuggestionResults =
+        SuggestionResults(suggestions.size, false, false).apply {
+            suggestions.forEach { add(it) }
+        }
 }
 
 private var currentTypingLocale = Locale.ENGLISH
