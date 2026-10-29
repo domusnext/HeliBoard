@@ -6,6 +6,10 @@ Once everything is up correctly, you're ready to go!
 
 If you have difficulties implementing some functionality, you're welcome to ask for help. No one will write the code for you, but often other contributors can give you very useful hints.
 
+## Repository Scripts
+
+Script placement conventions are documented in [scripts/README.md](scripts/README.md).
+
 # About the Code
 
 HeliBoard is based on AOSP keyboard, and in many places still contains mostly the original code. There are some extensions, and some parts have been replaced completely.

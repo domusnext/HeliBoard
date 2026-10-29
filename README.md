@@ -88,6 +88,8 @@ You can share your themes, layouts and dictionaries with other people:
 ## Code Contribution
 See [Contribution Guidelines](CONTRIBUTING.md)
 
+For script placement conventions, see [scripts/README.md](scripts/README.md).
+
 # License
 
 HeliBoard (as a fork of OpenBoard) is licensed under GNU General Public License v3.0.
