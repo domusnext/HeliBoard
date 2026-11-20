@@ -13,10 +13,12 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePropsFile = rootProject.file("app/release/keystore.properties")
-            if (keystorePropsFile.exists()) {
-                val keystoreProps = Properties().apply { load(keystorePropsFile.inputStream()) }
-                storeFile = project.file(keystoreProps["storeFile"]!!)
+            val path = providers.gradleProperty("keystoreDir").get()
+            val keystoreDir = rootProject.file(Regex("^~/").replace(path) { "${System.getProperty("user.home")}/" })
+            val keystorePropsFile = keystoreDir.resolve("norimini-keyboard.properties")
+            if (keystorePropsFile.isFile) {
+                val keystoreProps = Properties().apply { keystorePropsFile.inputStream().use { load(it) } }
+                storeFile = keystoreDir.resolve(keystoreProps.getProperty("storeFile"))
                 storePassword = keystoreProps["storePassword"] as String
                 keyAlias = keystoreProps["keyAlias"] as String
                 keyPassword = keystoreProps["keyPassword"] as String
